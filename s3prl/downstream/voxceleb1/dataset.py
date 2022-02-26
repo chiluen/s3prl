@@ -20,7 +20,7 @@ CACHE_PATH = os.path.join(os.path.dirname(__file__), '.cache/')
 
 # Voxceleb 1 Speaker Identification
 class SpeakerClassifiDataset(Dataset):
-    def __init__(self, mode, file_path, meta_data, max_timestep=None):
+    def __init__(self, mode, file_path, meta_data, max_timestep=None, **kwargs):
 
         self.root = file_path
         self.speaker_num = 1251
@@ -42,7 +42,10 @@ class SpeakerClassifiDataset(Dataset):
 
         self.dataset = dataset
         self.label = self.build_label(self.dataset)
-
+        
+        self.add_silence = kwargs['add_silence']
+        self.silence_length = kwargs['silence_length']
+       
     # file_path/id0001/asfsafs/xxx.wav
     def build_label(self, train_path_list):
 
@@ -98,6 +101,35 @@ class SpeakerClassifiDataset(Dataset):
         print("finish searching test set wav")
 
         return dataset
+    
+    def add_silence_func(self, wav, add_silence_place, silence_length):
+        """
+        都會傳進去
+        """
+        if add_silence_place == 'No':
+            return wav
+        temp_wav = torch.chunk(wav, 10)
+        wav_silence = torch.zeros(len(wav) // silence_length)
+        
+        
+        if add_silence_place == 'front':
+            
+            temp_wav = list(temp_wav)
+            temp_wav.insert(0, wav_silence)
+            return torch.cat(temp_wav)
+        elif add_silence_place == 'middle':
+            temp_wav = list(temp_wav)
+            temp_wav.insert(5, wav_silence)
+            return torch.cat(temp_wav)
+        elif add_silence_place == 'end':
+            print('enter here')
+            temp_wav = list(temp_wav)
+            temp_wav.insert(10, wav_silence)
+            return torch.cat(temp_wav)
+        else:
+            return wav
+        
+        
 
     def __len__(self):
         return len(self.dataset)
@@ -106,6 +138,8 @@ class SpeakerClassifiDataset(Dataset):
         wav, sr = torchaudio.load(self.dataset[idx])
         wav = wav.squeeze(0)
         length = wav.shape[0]
+        
+        wav = self.add_silence_func(wav, self.add_silence, self.silence_length) # add by chiluen
 
         if self.max_timestep !=None:
             if length > self.max_timestep:

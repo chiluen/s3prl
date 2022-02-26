@@ -43,10 +43,13 @@ class UtteranceLevel(nn.Module):
         **kwargs
     ):
         super().__init__()
+        
         latest_dim = input_dim
         self.pre_net = get_downstream_model(latest_dim, latest_dim, pre_net) if isinstance(pre_net, dict) else None
-        self.pooling = eval(pooling)(input_dim=latest_dim, activation=activation)
+        self.pooling = eval(pooling)(input_dim=latest_dim, activation=activation, weight_number=kwargs['weight_number'])
         self.post_net = get_downstream_model(latest_dim, output_dim, post_net)
+        
+
 
     def forward(self, hidden_state, features_len=None):
         if self.pre_net is not None:
@@ -56,6 +59,42 @@ class UtteranceLevel(nn.Module):
         logit, features_len = self.post_net(pooled, features_len)
 
         return logit, features_len
+    
+class FramewisePooling(nn.Module):
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        #add by chiluen
+        
+        self.weights = nn.Parameter(torch.ones(kwargs['weight_number']))
+
+    def forward(self, feature_BxTxH, features_len, **kwargs):
+        ''' 
+        Arguments
+            feature_BxTxH - [BxTxH]   Acoustic feature with shape 
+            features_len  - [B] of feature length
+        '''
+        ##這邊要先切chunk, 然後乘上weight, 最後接起來
+        if len(self.weights) != 10:
+            agg_vec_list = []
+            for i in range(len(feature_BxTxH)): #取batch
+                temp_agg_vec_list = []
+                temp_feature = torch.chunk(feature_BxTxH[i][:features_len[i]], len(self.weights))
+                norm_weights = F.softmax(self.weights, dim=-1)
+                for j in range(len(self.weights)): #算weight
+                    temp_agg_vec_list.append(temp_feature[j] * norm_weights[j])
+                agg_vec_list.append(torch.cat(temp_agg_vec_list).sum(dim=0))
+            return torch.stack(agg_vec_list), torch.ones(len(feature_BxTxH)).long()
+      
+        else: #沒有需要用到weight
+        
+            agg_vec_list = []
+            for i in range(len(feature_BxTxH)):
+                agg_vec = torch.mean(feature_BxTxH[i][:features_len[i]], dim=0)
+                agg_vec_list.append(agg_vec)
+
+            return torch.stack(agg_vec_list), torch.ones(len(feature_BxTxH)).long()
+    
 
 
 class MeanPooling(nn.Module):

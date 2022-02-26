@@ -86,6 +86,11 @@ def get_downstream_args():
     parser.add_argument('--cache_dir', help='The cache directory for pretrained model downloading')
     parser.add_argument('--verbose', action='store_true', help='Print model infomation')
     parser.add_argument('--disable_cudnn', action='store_true', help='Disable CUDNN')
+    
+    #add by chiluen, for silence test
+    parser.add_argument('--add_silence', type=str, default='No', help='add silence to the original output, options:[front, middle, end]')
+    parser.add_argument('--silence_length', type=int, default=10, help='silence lenght is 1/silence_length')
+    parser.add_argument('--weight_number', type=int, default=10, help='add weight for each chunk of wav')
 
     args = parser.parse_args()
     backup_files = []

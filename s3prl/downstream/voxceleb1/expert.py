@@ -44,9 +44,9 @@ class DownstreamExpert(nn.Module):
 
         root_dir = Path(self.datarc['file_path'])
 
-        self.train_dataset = SpeakerClassifiDataset('train', root_dir, self.datarc['meta_data'], self.datarc['max_timestep'])
-        self.dev_dataset = SpeakerClassifiDataset('dev', root_dir, self.datarc['meta_data'])
-        self.test_dataset = SpeakerClassifiDataset('test', root_dir, self.datarc['meta_data'])
+        self.train_dataset = SpeakerClassifiDataset('train', root_dir, self.datarc['meta_data'], self.datarc['max_timestep'], add_silence=kwargs['add_silence'], silence_length=kwargs['silence_length'])
+        self.dev_dataset = SpeakerClassifiDataset('dev', root_dir, self.datarc['meta_data'], None, add_silence=kwargs['add_silence'], silence_length=kwargs['silence_length'])
+        self.test_dataset = SpeakerClassifiDataset('test', root_dir, self.datarc['meta_data'], None, add_silence=kwargs['add_silence'], silence_length=kwargs['silence_length'])
         
         model_cls = eval(self.modelrc['select'])
         model_conf = self.modelrc.get(self.modelrc['select'], {})
@@ -55,6 +55,7 @@ class DownstreamExpert(nn.Module):
             input_dim = self.modelrc['projector_dim'],
             output_dim = self.train_dataset.speaker_num,
             **model_conf,
+            **kwargs
         )
         self.objective = nn.CrossEntropyLoss()
         self.register_buffer('best_score', torch.zeros(1))
