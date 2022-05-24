@@ -189,6 +189,12 @@ class Runner():
             **vars(self.args)
         ).to(self.args.device)
 
+        """
+        訓練好模型，可以在這邊進行load model的動作，load到model.model.framelevel_feature_extractor
+        或者是在_init_model那邊做(但好像沒差)
+        這樣我之後在這邊設一個argument，若新增了一個model，就改模型樣式
+        """
+
         return self._init_model(
             model = model,
             name = 'Downstream',

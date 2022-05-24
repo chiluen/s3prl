@@ -18,6 +18,7 @@ from joblib.parallel import Parallel, delayed
 from torch.utils.data import DataLoader, Dataset
 from torchaudio.sox_effects import apply_effects_file
 
+from audiomentations import Compose, AddGaussianNoise, TimeStretch, PitchShift, Shift
 
 EFFECTS = [
 ["channels", "1"],
@@ -27,7 +28,7 @@ EFFECTS = [
 ]
 
 # Voxceleb 2 Speaker verification
-class SpeakerVerifi_train(Dataset):
+class Contrastive_train(Dataset):
     def __init__(self, vad_config, key_list, file_path, meta_data, max_timestep=None, n_jobs=12):
         self.roots = file_path
         self.root_key = key_list
@@ -65,6 +66,13 @@ class SpeakerVerifi_train(Dataset):
         self.all_speakers.sort()
         self.speaker_num = len(self.all_speakers)
 
+        self.augment = Compose([
+                        AddGaussianNoise(min_amplitude=0.001, max_amplitude=0.015, p=0.5),
+                        TimeStretch(min_rate=0.8, max_rate=1.25, p=0.5),
+                        PitchShift(min_semitones=-4, max_semitones=4, p=0.5),
+                        Shift(min_fraction=-0.5, max_fraction=0.5, p=0.5),
+                       ])
+
     def __len__(self):
         return len(self.dataset)
     
@@ -78,63 +86,23 @@ class SpeakerVerifi_train(Dataset):
             if length > self.max_timestep:
                 start = random.randint(0, int(length - self.max_timestep))
                 wav = wav[start : start + self.max_timestep]
-
+                length = self.max_timestep
+        
+        #對wav做augmentation
+        wav_original = wav.numpy()
+        wav_manipulate = self.augment(wav_original, sample_rate=16000)
+        
         tags = Path(path).parts[-3:]
         utterance_id = "-".join(tags).replace(".wav", "")
         label = self.all_speakers.index(tags[0])
-        return wav.numpy(), utterance_id, label
-        
-    def collate_fn(self, samples):
-        #長度為10的tuple, 裝的東西是上面的東西
-        return zip(*samples)
 
+        #還要回傳一個length
+        return wav_original, wav_manipulate, utterance_id, label
 
-class SpeakerVerifi_test(Dataset):
-    def __init__(self, vad_config, file_path, meta_data):
-        self.root = file_path
-        self.meta_data = meta_data
-        self.necessary_dict = self.processing()
-        self.vad_c = vad_config 
-        self.dataset = self.necessary_dict['pair_table'] 
-        
-    def processing(self):
-        pair_table = []
-        with open(self.meta_data, "r") as f:
-            usage_list = f.readlines()
-        for pair in usage_list:
-            list_pair = pair.split()
-            pair_1= os.path.join(self.root, list_pair[1])
-            pair_2= os.path.join(self.root, list_pair[2])
-            one_pair = [list_pair[0],pair_1,pair_2 ]
-            pair_table.append(one_pair)
-        return {
-            "spk_paths": None,
-            "total_spk_num": None,
-            "pair_table": pair_table
-        }
-
-    def __len__(self):
-        return len(self.necessary_dict['pair_table'])
-
-    def __getitem__(self, idx):
-        y_label, x1_path, x2_path = self.dataset[idx]
-
-        def path2name(path):
-            return Path("-".join((Path(path).parts)[-3:])).stem
-
-        x1_name = path2name(x1_path)
-        x2_name = path2name(x2_path)
-
-        wav1, _ = apply_effects_file(x1_path, EFFECTS)
-        wav2, _ = apply_effects_file(x2_path, EFFECTS)
-
-        wav1 = wav1.squeeze(0)
-        wav2 = wav2.squeeze(0)
-
-        return wav1.numpy(), wav2.numpy(), x1_name, x2_name, int(y_label[0])
 
     def collate_fn(self, data_sample):
-        wavs1, wavs2, x1_names, x2_names, ylabels = zip(*data_sample)
-        all_wavs = wavs1 + wavs2
-        all_names = x1_names + x2_names
-        return all_wavs, all_names, ylabels
+        wavs_original, wavs_manipulate, utterance_ids, labels = zip(*data_sample)
+        all_wavs = wavs_original + wavs_manipulate
+        utterance_ids = utterance_ids + utterance_ids
+        labels = labels + labels
+        return all_wavs, utterance_ids, labels
