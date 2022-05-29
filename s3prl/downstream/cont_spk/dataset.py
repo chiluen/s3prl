@@ -23,9 +23,11 @@ from audiomentations import Compose, AddGaussianNoise, TimeStretch, PitchShift, 
 EFFECTS = [
 ["channels", "1"],
 ["rate", "16000"],
-["gain", "-3.0"],
-["silence", "1", "0.1", "0.1%", "-1", "0.1", "0.1%"],
+["gain", "-3"],
 ]
+#["silence", "1", "0.1", "0.1%", "-1", "0.1", "0.1%"],
+
+
 
 # Voxceleb 2 Speaker verification
 class Contrastive_train(Dataset):
@@ -62,6 +64,8 @@ class Contrastive_train(Dataset):
             for path, length in zip(wav_paths, wav_lengths):
                 if length > self.vad_c['min_sec']:
                     self.dataset.append(path)
+
+        #self.dataset = self.dataset[:148] #測試用
 
         self.all_speakers.sort()
         self.speaker_num = len(self.all_speakers)

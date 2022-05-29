@@ -114,6 +114,8 @@ class DownstreamExpert(nn.Module):
         # self.score_fn  = nn.CosineSimilarity(dim=-1)
         # self.eval_metric = EER
         # self.register_buffer('best_score', torch.ones(1) * 100)
+        
+        
         self.wandb_init(train_config, ModelConfig)
 
 
