@@ -1,4 +1,3 @@
-#f
 runner:
   total_steps: 200000
   gradient_clipping: 1.0e+3
