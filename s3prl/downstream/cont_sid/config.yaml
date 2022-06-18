@@ -24,7 +24,7 @@ optimizer:
 
 downstream_expert: 
   datarc:
-    file_path: /home/chiluen/Desktop/dataset/VoxCeleb1
+    file_path: /home/leo545035/dataset/VoxCeleb1
     meta_data: ./downstream/voxceleb1/veri_test_class.txt
     num_workers: 12
     train_batch_size: 8
@@ -43,5 +43,5 @@ downstream_expert:
         agg_dim: 1500
         dropout_p: 0.0
         batch_norm: False
-        ckpt_path: "/home/chiluen/Desktop/s3prl/s3prl/result/downstream/ExpName/states-20000.ckpt"
+        ckpt_path: "/home/leo545035/s3prl/s3prl/result/downstream/cont_spk_batch_90/states-10000.ckpt"
       
