@@ -57,7 +57,7 @@ class DownstreamExpert(nn.Module):
         # dataset
         train_file_path = Path(self.datarc['file_path']) / "dev" / "wav"
         test_file_path = Path(self.datarc['file_path']) / "test" / "wav"
-        
+
         train_config = {
             "vad_config": self.datarc['vad_config'],
             "file_path": [train_file_path],
@@ -65,21 +65,24 @@ class DownstreamExpert(nn.Module):
             "meta_data": self.datarc['train_meta_data'],
             "max_timestep": self.datarc["max_timestep"],
         }
-        self.train_dataset = SpeakerVerifi_train(**train_config)
+        #self.train_dataset = SpeakerVerifi_train(**train_config)
+        self.train_dataset = SpeakerVerifi_train(**train_config, add_silence=kwargs['add_silence'], silence_length=kwargs['silence_length'])
 
         dev_config = {
             "vad_config": self.datarc['vad_config'],
             "file_path": train_file_path, 
             "meta_data": self.datarc['dev_meta_data']
-        }        
-        self.dev_dataset = SpeakerVerifi_test(**dev_config)
-
+        }
+        #self.dev_dataset = SpeakerVerifi_test(**dev_config)        
+        self.dev_dataset = SpeakerVerifi_test(**dev_config, add_silence=kwargs['add_silence'], silence_length=kwargs['silence_length'])
+        
         test_config = {
             "vad_config": self.datarc['vad_config'],
             "file_path": test_file_path, 
             "meta_data": self.datarc['test_meta_data']
         }
-        self.test_dataset = SpeakerVerifi_test(**test_config)
+        #self.test_dataset = SpeakerVerifi_test(**test_config)
+        self.test_dataset = SpeakerVerifi_test(**test_config, add_silence=kwargs['add_silence'], silence_length=kwargs['silence_length'])
 
         # module
         self.connector = nn.Linear(self.upstream_dim, self.modelrc['input_dim'])

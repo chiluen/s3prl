@@ -28,7 +28,7 @@ EFFECTS = [
 
 # Voxceleb 2 Speaker verification
 class SpeakerVerifi_train(Dataset):
-    def __init__(self, vad_config, key_list, file_path, meta_data, max_timestep=None, n_jobs=12):
+    def __init__(self, vad_config, key_list, file_path, meta_data, max_timestep=None, n_jobs=12, **kwargs):
         self.roots = file_path
         self.root_key = key_list
         self.max_timestep = max_timestep
@@ -65,6 +65,9 @@ class SpeakerVerifi_train(Dataset):
         self.all_speakers.sort()
         self.speaker_num = len(self.all_speakers)
 
+        self.add_silence = kwargs['add_silence']
+        self.silence_length = kwargs['silence_length']
+
     def __len__(self):
         return len(self.dataset)
     
@@ -73,6 +76,8 @@ class SpeakerVerifi_train(Dataset):
         wav, _ = apply_effects_file(str(path), EFFECTS)
         wav = wav.squeeze(0)
         length = wav.shape[0]
+
+        wav = self.add_silence_func(wav, self.add_silence, self.silence_length) # add by chiluen
         
         if self.max_timestep != None:
             if length > self.max_timestep:
@@ -88,14 +93,41 @@ class SpeakerVerifi_train(Dataset):
         #長度為10的tuple, 裝的東西是上面的東西
         return zip(*samples)
 
+    def add_silence_func(self, wav, add_silence_place, silence_length):
+        """
+        都會傳進去
+        """
+        if add_silence_place == 'No':
+            return wav
+        temp_wav = torch.chunk(wav, 10)
+        wav_silence = torch.zeros(len(wav) // silence_length)
+        
+        if add_silence_place == 'front':
+            temp_wav = list(temp_wav)
+            temp_wav.insert(0, wav_silence)
+            return torch.cat(temp_wav)
+        elif add_silence_place == 'middle':
+            temp_wav = list(temp_wav)
+            temp_wav.insert(5, wav_silence)
+            return torch.cat(temp_wav)
+        elif add_silence_place == 'end':
+            temp_wav = list(temp_wav)
+            temp_wav.insert(10, wav_silence)
+            return torch.cat(temp_wav)
+        else:
+            return wav
+
 
 class SpeakerVerifi_test(Dataset):
-    def __init__(self, vad_config, file_path, meta_data):
+    def __init__(self, vad_config, file_path, meta_data, **kwargs):
         self.root = file_path
         self.meta_data = meta_data
         self.necessary_dict = self.processing()
         self.vad_c = vad_config 
         self.dataset = self.necessary_dict['pair_table'] 
+
+        self.add_silence = kwargs['add_silence']
+        self.silence_length = kwargs['silence_length']
         
     def processing(self):
         pair_table = []
@@ -131,6 +163,9 @@ class SpeakerVerifi_test(Dataset):
         wav1 = wav1.squeeze(0)
         wav2 = wav2.squeeze(0)
 
+        wav1 = self.add_silence_func(wav1, self.add_silence, self.silence_length) # add by chiluen
+        wav2 = self.add_silence_func(wav2, self.add_silence, self.silence_length) # add by chiluen
+
         return wav1.numpy(), wav2.numpy(), x1_name, x2_name, int(y_label[0])
 
     def collate_fn(self, data_sample):
@@ -138,3 +173,30 @@ class SpeakerVerifi_test(Dataset):
         all_wavs = wavs1 + wavs2
         all_names = x1_names + x2_names
         return all_wavs, all_names, ylabels
+
+
+
+    def add_silence_func(self, wav, add_silence_place, silence_length):
+        """
+        都會傳進去
+        """
+        if add_silence_place == 'No':
+            return wav
+        temp_wav = torch.chunk(wav, 10)
+        wav_silence = torch.zeros(len(wav) // silence_length)
+        
+        if add_silence_place == 'front':
+            temp_wav = list(temp_wav)
+            temp_wav.insert(0, wav_silence)
+            return torch.cat(temp_wav)
+        elif add_silence_place == 'middle':
+            temp_wav = list(temp_wav)
+            temp_wav.insert(5, wav_silence)
+            return torch.cat(temp_wav)
+        elif add_silence_place == 'end':
+            temp_wav = list(temp_wav)
+            temp_wav.insert(10, wav_silence)
+            return torch.cat(temp_wav)
+        else:
+            return wav
+

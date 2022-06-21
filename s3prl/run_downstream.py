@@ -90,7 +90,10 @@ def get_downstream_args():
     #add by chiluen, for silence test
     parser.add_argument('--add_silence', type=str, default='No', help='add silence to the original output, options:[front, middle, end]')
     parser.add_argument('--silence_length', type=int, default=10, help='silence lenght is 1/silence_length')
-    parser.add_argument('--weight_number', type=int, default=10, help='add weight for each chunk of wav')
+    parser.add_argument('--weight_number', type=int, default=10, help='add weight for each chunk of wav, sometimes there will only have 1~2 weights or less')
+
+
+    #add by chiluen
 
     args = parser.parse_args()
     backup_files = []
