@@ -91,10 +91,14 @@ def get_downstream_args():
     parser.add_argument('--add_silence', type=str, default='No', help='add silence to the original output, options:[front, middle, end]')
     parser.add_argument('--silence_length', type=int, default=10, help='silence lenght is 1/silence_length')
     parser.add_argument('--weight_number', type=int, default=10, help='add weight for each chunk of wav, sometimes there will only have 1~2 weights or less')
+    parser.add_argument('--inference_path', type=str, default='', help='wav file path in order to inference')
+
+    parser.add_argument('--add_silence_test', type=str, default='No', help='add silence to the original output, options:[front, middle, end]')
+    parser.add_argument('--silence_length_test', type=int, default=10, help='silence lenght is 1/silence_length')
+    parser.add_argument('--saliency_all', action='store_true', help='directly get all saliency')
 
 
     #add by chiluen
-
     args = parser.parse_args()
     backup_files = []
 
@@ -218,7 +222,7 @@ def main():
         torch.backends.cudnn.enabled = True
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-
+    
     runner = Runner(args, config)
     eval(f'runner.{args.mode}')()
 

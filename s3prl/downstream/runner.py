@@ -8,6 +8,7 @@ import random
 import tempfile
 import importlib
 from pathlib import Path
+import pickle
 
 import torch
 import torchaudio
@@ -416,7 +417,7 @@ class Runner():
 
     def evaluate(self, split=None, logger=None, global_step=0):
         """evaluate function will always be called on a single process even during distributed training"""
-
+        
         # When this member function is called directly by command line
         not_during_training = split is None and logger is None and global_step == 0
         if not_during_training:
@@ -488,8 +489,97 @@ class Runner():
 
         return [] if type(save_names) is not list else save_names
 
+    # modify by chiluen
+    # only inference one file, than store the result
     def inference(self):
+        """
+        example usage:
+        python3 run_downstream.py -m inference -e result/downstream/sidd/dev-best.ckpt --add_silence front --inference_path /home/chiluen/Desktop/dataset/VoxCeleb1/test/wav/id10270/5r0dWxy17C8/00002.wav --add_silence back --add_silence_test front --silence_length_test 20
+
+        """
+
+        #for storage path
+        prefix = "/home/chiluen/Desktop/s3prl/s3prl/saliency/"
+        prefix += "{}_{}".format(self.args.add_silence_test, self.args.silence_length_test)
+        os.makedirs(prefix, exist_ok=True)
+
+        if self.args.saliency_all:
+            self.saliency()
+            return
+
+
+        def add_silence_func(wav, add_silence_place, silence_length):
+            """
+            都會傳進去
+            """
+            if add_silence_place == 'No':
+                return wav
+            temp_wav = torch.chunk(wav, 10)
+            wav_silence = torch.zeros(len(wav) // silence_length)
+            
+            
+            if add_silence_place == 'front':
+                
+                temp_wav = list(temp_wav)
+                temp_wav.insert(0, wav_silence)
+                return torch.cat(temp_wav)
+            elif add_silence_place == 'middle':
+                temp_wav = list(temp_wav)
+                temp_wav.insert(5, wav_silence)
+                return torch.cat(temp_wav)
+            elif add_silence_place == 'end':
+                temp_wav = list(temp_wav)
+                temp_wav.insert(10, wav_silence)
+                return torch.cat(temp_wav)
+            else:
+                return wav
+        
+        filepath = Path(self.args.inference_path)
+        assert filepath.is_file(), filepath
+        
+        #get label
+        label = []
+        id_string = str(filepath).split("/")[-3]
+        label.append(int(id_string[2:]) - 10001)
+
+        if hasattr(self.downstream.model, "load_audio"):
+            wav = self.downstream.model.load_audio(filepath)
+        else:
+            wav, sr = torchaudio.load(str(filepath))
+            assert sr == SAMPLE_RATE, sr
+
+        wav = wav.view(-1)
+        wav = add_silence_func(wav, self.args.add_silence_test, self.args.silence_length_test) # add by chiluen
+        wavs = [wav.to(self.args.device)]
+
+        for entry in self.all_entries:
+            entry.model.eval()
+
+        #create fake record
+        fake_records = defaultdict(list)
+
+        #need gradient for the speech file
+        wavs[0].requires_grad_()
+
+        features = self.upstream.model(wavs)
+        features = self.featurizer.model(wavs, features)
+        loss = self.downstream.model("inference", features, label, "filename", fake_records)
+        loss.backward()
+
+        saliencies = wavs[0].grad.data.abs().detach().cpu()
+        saliencies = (saliencies - saliencies.min()) / (saliencies.max() - saliencies.min()) # normalize
+        saliencies = saliencies.tolist()
+
+        PATH = prefix + '/'+ '_'.join(self.args.inference_path.split('/')[-3:]) + '.pkl'
+        #PATH = "/home/chiluen/Desktop/s3prl/s3prl/saliency/wav_grad.pkl"
+        print("Saved the file at {}".format(PATH))
+        with open(PATH, 'wb') as f:
+            pickle.dump(saliencies, f)
+
+        
+        """
         filepath = Path(self.args.evaluate_split)
+        
         assert filepath.is_file(), filepath
         filename = filepath.stem
 
@@ -507,6 +597,112 @@ class Runner():
             features = self.upstream.model(wavs)
             features = self.featurizer.model(wavs, features)
             self.downstream.model.inference(features, [filename])
+        
+        """
+
+    # modify by chiluen
+    # only inference one file, than store the result
+    def saliency(self):
+        """
+        example usage:
+        
+        """
+
+        def add_silence_func(wav, add_silence_place, silence_length):
+            """
+            都會傳進去
+            """
+            if add_silence_place == 'No':
+                return wav
+            temp_wav = torch.chunk(wav, 10)
+            wav_silence = torch.zeros(len(wav) // silence_length)
+            
+            
+            if add_silence_place == 'front':
+                
+                temp_wav = list(temp_wav)
+                temp_wav.insert(0, wav_silence)
+                return torch.cat(temp_wav)
+            elif add_silence_place == 'middle':
+                temp_wav = list(temp_wav)
+                temp_wav.insert(5, wav_silence)
+                return torch.cat(temp_wav)
+            elif add_silence_place == 'end':
+                print('enter here')
+                temp_wav = list(temp_wav)
+                temp_wav.insert(10, wav_silence)
+                return torch.cat(temp_wav)
+            else:
+                return wav
+
+        #for storage path
+        prefix = "/home/chiluen/Desktop/s3prl/s3prl/saliency/"
+        prefix += "{}_{}".format(self.args.add_silence_test, self.args.silence_length_test)
+        os.makedirs(prefix, exist_ok=True)
+        
+
+        pklpath = Path(self.args.inference_path) #傳入一個folder
+        with open(pklpath, 'rb') as f:
+            filepath = pickle.load(f)
+
+        all_models = []
+        for entry in self.all_entries:
+            if entry.trainable:
+                all_models.append(entry.model)
+                
+            entry.model.eval()
+
+        optimizer = self._get_optimizer(all_models)
+
+        #create fake record
+        fake_records = defaultdict(list)
+        
+        for index, p in enumerate(filepath):
+
+            #get label
+            label = []
+            id_string = str(p).split("/")[-3]
+            label.append(int(id_string[2:]) - 10001)
+
+            if hasattr(self.downstream.model, "load_audio"):
+                wav = self.downstream.model.load_audio(p)
+            else:
+                wav, sr = torchaudio.load(str(p))
+                assert sr == SAMPLE_RATE, sr
+
+            wav = wav.view(-1)
+            wav = add_silence_func(wav, self.args.add_silence_test, self.args.silence_length_test) # add by chiluen
+            wavs = [wav.to(self.args.device)]
+
+            #need gradient for the speech file
+            wavs[0].requires_grad_()
+            
+            features = self.upstream.model(wavs)
+            features = self.featurizer.model(wavs, features)
+            loss = self.downstream.model("inference", features, label, "filename", fake_records)
+            loss.backward()
+
+            saliencies = wavs[0].grad.data.abs().detach().cpu()
+            saliencies = (saliencies - saliencies.min()) / (saliencies.max() - saliencies.min()) # normalize
+            saliencies = saliencies.tolist()
+        
+            PATH = prefix + '/'+ '_'.join(p.split('/')[-3:]) + '.pkl'
+            #print("Saved the file at {}".format(PATH))
+            
+
+            with open(PATH, 'wb') as f:
+                pickle.dump(saliencies, f)
+            if index % 100 == 0:
+                print(index)
+            #import ipdb; ipdb.set_trace()
+            print(index)
+            del loss
+            del wavs
+            del wav
+            optimizer.zero_grad()
+            self.upstream.model.model.zero_grad()
+            torch.cuda.empty_cache()
+
 
     def push_to_huggingface_hub(self):
         """Creates a downstream repository on the Hub and pushes training artifacts to it."""
