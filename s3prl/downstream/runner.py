@@ -606,8 +606,9 @@ class Runner():
         """
 
     def get_feature(self):
-        prefix = "/home/chiluen/Desktop/s3prl/s3prl/asv_feature/"
-        prefix += "{}_{}".format(self.args.add_silence_test, self.args.silence_length_test)
+        prefix = "/home/chiluen/Desktop/s3prl/s3prl/asv_feature/" + self.args.init_ckpt.split('/')[-2] 
+        os.makedirs(prefix, exist_ok=True)
+        prefix += "/{}_{}".format(self.args.add_silence_test, self.args.silence_length_test)
         os.makedirs(prefix, exist_ok=True)
 
 
@@ -703,6 +704,7 @@ class Runner():
         prefix = "/home/chiluen/Desktop/s3prl/s3prl/saliency/"
         prefix += "{}_{}".format(self.args.add_silence_test, self.args.silence_length_test)
         os.makedirs(prefix, exist_ok=True)
+        
         
 
         pklpath = Path(self.args.inference_path) #傳入一個folder
