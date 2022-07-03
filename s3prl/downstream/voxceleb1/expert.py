@@ -110,6 +110,15 @@ class DownstreamExpert(nn.Module):
 
         return loss
 
+    # Interface
+    def inference(self, features):
+        device = features[0].device
+        features_len = torch.IntTensor([len(feat) for feat in features]).to(device=device)
+        features = pad_sequence(features, batch_first=True)
+        features = self.projector(features)
+        predicted, _ = self.model(features, features_len)
+        return predicted.cpu().tolist()
+
     # interface
     def log_records(self, mode, records, logger, global_step, **kwargs):
         save_names = []

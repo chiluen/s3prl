@@ -95,7 +95,9 @@ def get_downstream_args():
 
     parser.add_argument('--add_silence_test', type=str, default='No', help='add silence to the original output, options:[front, middle, end]')
     parser.add_argument('--silence_length_test', type=int, default=10, help='silence lenght is 1/silence_length')
-    parser.add_argument('--saliency_all', action='store_true', help='directly get all saliency')
+    parser.add_argument('--saliency_all', action='store_true', help='directly get all saliency') #not funcion
+    parser.add_argument('--get_feature', action='store_true', help='get the feature of input data') #not funcion
+
 
 
     #add by chiluen
