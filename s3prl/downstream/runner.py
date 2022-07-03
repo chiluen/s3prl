@@ -650,18 +650,11 @@ class Runner():
         wav = add_silence_func(wav, self.args.add_silence_test, self.args.silence_length_test) # add by chiluen
         wavs = [wav.to(self.args.device)]
 
-        #create fake record
-        fake_records = defaultdict(list)
 
-        #need gradient for the speech file
-        wavs[0].requires_grad_()
-
-        features = self.upstream.model(wavs)
-        features = self.featurizer.model(wavs, features)
-
-        
-
-        features = self.downstream.model.inference(features)[0]
+        with torch.no_grad():
+            features = self.upstream.model(wavs)
+            features = self.featurizer.model(wavs, features)
+            features = self.downstream.model.inference(features)[0]
 
         PATH = prefix + '/'+ self.args.inference_path.split('/')[-1][:-5] + '.pkl'
         print("Saved the file at {}".format(PATH))
